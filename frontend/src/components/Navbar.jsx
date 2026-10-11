@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Calendar, Activity, Gauge, BrainCircuit, Flag, Zap } from 'lucide-react';
+import { Calendar, Activity, Gauge, BrainCircuit, Trophy } from 'lucide-react';
 
 export const Navbar = () => {
   const navItems = [
     { to: '/', label: 'Calendar', icon: Calendar },
+    { to: '/standings', label: 'Standings', icon: Trophy },
     { to: '/live', label: 'Live Timing', icon: Activity },
     { to: '/telemetry', label: 'Telemetry Compare', icon: Gauge },
     { to: '/strategy', label: 'Strategy Predictor', icon: BrainCircuit },
@@ -32,7 +33,7 @@ export const Navbar = () => {
             </div>
           </NavLink>
 
-          {/* Navigation Links */}
+          {/* Navigation Links (Step 2.4: Standings Tab) */}
           <nav className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => {
               const Icon = item.icon;

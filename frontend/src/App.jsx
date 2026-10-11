@@ -1,9 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Navbar } from './components';
+import { Navbar, ChampionshipStandings } from './components';
 import { Calendar, LiveDashboard, TelemetryCompare, StrategyPredictor } from './pages';
 
 function App() {
+  // Step 1.1: Dynamic landing year dictated by current date
+  const currentYear = new Date().getFullYear();
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col selection:bg-[#E10600] selection:text-white">
@@ -13,8 +16,9 @@ function App() {
         {/* Main Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Routes>
-            <Route path="/" element={<Calendar />} />
+            <Route path="/" element={<Calendar defaultYear={currentYear} />} />
             <Route path="/calendar" element={<Navigate to="/" replace />} />
+            <Route path="/standings" element={<ChampionshipStandings />} />
             <Route path="/live" element={<LiveDashboard />} />
             <Route path="/telemetry" element={<TelemetryCompare />} />
             <Route path="/strategy" element={<StrategyPredictor />} />

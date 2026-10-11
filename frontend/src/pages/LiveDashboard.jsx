@@ -1,18 +1,55 @@
-import React, { useState } from 'react';
-import { Activity, Radio, Flag, CloudSun, Gauge, AlertTriangle, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { f1Api } from '../services/api';
+import { Activity, Radio, Flag, CloudSun, Gauge, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 
 export const LiveDashboard = () => {
-  // Sample live leaderboard data
-  const [leaderboard] = useState([
-    { pos: 1, no: 1, driver: 'M. Verstappen', team: 'Red Bull Racing', gap: 'LEADER', interval: '-', tire: 'M', laps: 18, lastLap: '1:31.428' },
-    { pos: 2, no: 4, driver: 'L. Norris', team: 'McLaren', gap: '+1.482', interval: '+1.482', tire: 'M', laps: 18, lastLap: '1:31.390' },
-    { pos: 3, no: 16, driver: 'C. Leclerc', team: 'Ferrari', gap: '+3.910', interval: '+2.428', tire: 'M', laps: 18, lastLap: '1:31.650' },
-    { pos: 4, no: 81, driver: 'O. Piastri', team: 'McLaren', gap: '+5.120', interval: '+1.210', tire: 'M', laps: 18, lastLap: '1:31.712' },
-    { pos: 5, no: 44, driver: 'L. Hamilton', team: 'Mercedes', gap: '+8.450', interval: '+3.330', tire: 'H', laps: 22, lastLap: '1:32.015' },
-    { pos: 6, no: 63, driver: 'G. Russell', team: 'Mercedes', gap: '+9.980', interval: '+1.530', tire: 'H', laps: 22, lastLap: '1:32.110' },
-    { pos: 7, no: 55, driver: 'C. Sainz', team: 'Ferrari', gap: '+12.300', interval: '+2.320', tire: 'M', laps: 18, lastLap: '1:31.950' },
-    { pos: 8, no: 14, driver: 'F. Alonso', team: 'Aston Martin', gap: '+19.820', interval: '+7.520', tire: 'S', laps: 12, lastLap: '1:32.400' },
+  const [leaderboard, setLeaderboard] = useState([
+    { pos: 1, driver_number: 81, driver: 'PIA', full_name: 'Oscar Piastri', team: 'McLaren', interval: 'LEADER', tire_compound: 'MEDIUM', laps: 70, status: 'Finished' },
+    { pos: 2, driver_number: 4, driver: 'NOR', full_name: 'Lando Norris', team: 'McLaren', interval: '+2.141s', tire_compound: 'MEDIUM', laps: 70, status: 'Finished' },
+    { pos: 3, driver_number: 44, driver: 'HAM', full_name: 'Lewis Hamilton', team: 'Mercedes', interval: '+14.880s', tire_compound: 'HARD', laps: 70, status: 'Finished' },
+    { pos: 4, driver_number: 16, driver: 'LEC', full_name: 'Charles Leclerc', team: 'Ferrari', interval: '+19.686s', tire_compound: 'MEDIUM', laps: 70, status: 'Finished' },
+    { pos: 5, driver_number: 1, driver: 'VER', full_name: 'Max Verstappen', team: 'Red Bull Racing', interval: '+21.349s', tire_compound: 'MEDIUM', laps: 70, status: 'Finished' },
+    { pos: 6, driver_number: 55, driver: 'SAI', full_name: 'Carlos Sainz', team: 'Ferrari', interval: '+23.073s', tire_compound: 'HARD', laps: 70, status: 'Finished' },
+    { pos: 7, driver_number: 11, driver: 'PER', full_name: 'Sergio Perez', team: 'Red Bull Racing', interval: '+39.792s', tire_compound: 'HARD', laps: 70, status: 'Finished' },
+    { pos: 8, driver_number: 63, driver: 'RUS', full_name: 'George Russell', team: 'Mercedes', interval: '+42.368s', tire_compound: 'MEDIUM', laps: 70, status: 'Finished' },
   ]);
+
+  const [eventName, setEventName] = useState('Hungarian Grand Prix');
+  const [sessionName, setSessionName] = useState('Race');
+  const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
+  const [isLive, setIsLive] = useState(true);
+
+  // Step 1.2: Real-time 5-second polling interval via useEffect
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLiveTiming = async () => {
+      try {
+        const data = await f1Api.getLiveTiming();
+        if (isMounted && data) {
+          if (data.leaderboard && data.leaderboard.length > 0) {
+            setLeaderboard(data.leaderboard);
+          }
+          if (data.event_name) setEventName(data.event_name);
+          if (data.session_name) setSessionName(data.session_name);
+          setLastUpdated(new Date().toLocaleTimeString());
+        }
+      } catch (err) {
+        console.error('Live timing polling error:', err);
+      }
+    };
+
+    // Initial fetch
+    fetchLiveTiming();
+
+    // 5-second polling interval
+    const intervalId = setInterval(fetchLiveTiming, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -20,14 +57,17 @@ export const LiveDashboard = () => {
       <div className="bg-[#131823] p-6 rounded-2xl border border-[#232D42] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1.5">
-            <span className="relative flex h-2 w-2">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span>LIVE SESSION TELEMETRY & TIMING</span>
+            <span className="text-[10px] text-slate-400 ml-2 bg-[#0B0E14] px-2 py-0.5 rounded border border-[#232D42]">
+              Polling every 5s · Last sync: {lastUpdated}
+            </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-racing">
-            Bahrain Grand Prix — Lap 18 / 57
+            {eventName} — {sessionName}
           </h2>
           <p className="text-slate-400 text-xs mt-1">
             Real-time track telemetry, driver intervals, tire delta, and pit stop tracker.
@@ -58,7 +98,10 @@ export const LiveDashboard = () => {
                 Live Leaderboard
               </h3>
             </div>
-            <span className="text-xs text-slate-400 font-mono">Sector 1 Active</span>
+            <div className="flex items-center space-x-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-slate-400 font-mono">Live Stream Active</span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -69,38 +112,35 @@ export const LiveDashboard = () => {
                   <th className="py-3 px-4">Driver</th>
                   <th className="py-3 px-4">Team</th>
                   <th className="py-3 px-4">Interval</th>
-                  <th className="py-3 px-4">Gap</th>
                   <th className="py-3 px-4">Tire</th>
-                  <th className="py-3 px-4">Laps</th>
-                  <th className="py-3 px-4">Last Lap</th>
+                  <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#232D42]/60 font-mono">
-                {leaderboard.map((row) => (
-                  <tr key={row.no} className="hover:bg-[#1C2333]/50 transition-colors">
-                    <td className="py-3 px-4 font-bold text-white">{row.pos}</td>
+                {leaderboard.map((row, idx) => (
+                  <tr key={row.driver || idx} className="hover:bg-[#1C2333]/50 transition-colors">
+                    <td className="py-3 px-4 font-bold text-white">{row.position || idx + 1}</td>
                     <td className="py-3 px-4 font-sans font-bold text-slate-100 flex items-center space-x-2">
-                      <span className="text-slate-500 font-mono text-[11px]">{row.no}</span>
-                      <span>{row.driver}</span>
+                      <span className="text-slate-500 font-mono text-[11px]">{row.driver_number || row.no || '-'}</span>
+                      <span className="text-white font-bold">{row.driver}</span>
+                      <span className="text-slate-400 font-normal text-xs hidden sm:inline">({row.full_name || ''})</span>
                     </td>
                     <td className="py-3 px-4 font-sans text-slate-400">{row.team}</td>
-                    <td className="py-3 px-4 text-slate-300">{row.interval}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-200">{row.gap}</td>
+                    <td className="py-3 px-4 font-semibold text-slate-200">{row.interval || row.gap}</td>
                     <td className="py-3 px-4">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          row.tire === 'S'
+                          (row.tire_compound || row.tire) === 'SOFT' || (row.tire_compound || row.tire) === 'S'
                             ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : row.tire === 'M'
+                            : (row.tire_compound || row.tire) === 'MEDIUM' || (row.tire_compound || row.tire) === 'M'
                             ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : 'bg-slate-200/20 text-white border border-slate-400/30'
                         }`}
                       >
-                        {row.tire}
+                        {row.tire_compound || row.tire}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-400">{row.laps}</td>
-                    <td className="py-3 px-4 text-emerald-400 font-bold">{row.lastLap}</td>
+                    <td className="py-3 px-4 text-emerald-400 font-bold">{row.status || 'Finished'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -118,24 +158,24 @@ export const LiveDashboard = () => {
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-[#0B0E14] rounded-xl border border-[#232D42]">
                 <div className="flex justify-between text-slate-500 text-[10px] mb-1">
-                  <span>LAP 17</span>
-                  <span>14:38:12</span>
+                  <span>RACE FINISH</span>
+                  <span>16:42:01</span>
                 </div>
-                <p className="text-slate-300 font-medium">DRS Enabled in Zones 1 and 2.</p>
+                <p className="text-slate-300 font-medium">Chequered Flag: Oscar Piastri wins the Grand Prix!</p>
               </div>
               <div className="p-3 bg-[#0B0E14] rounded-xl border border-[#232D42]">
                 <div className="flex justify-between text-slate-500 text-[10px] mb-1">
-                  <span>LAP 14</span>
-                  <span>14:32:05</span>
+                  <span>LAP 68</span>
+                  <span>16:38:12</span>
                 </div>
-                <p className="text-slate-300 font-medium">Car 14 (ALO) Pit Stop: 2.3s stationary (Soft to Medium).</p>
+                <p className="text-slate-300 font-medium">McLaren 1-2 confirmed with Lando Norris in P2.</p>
               </div>
               <div className="p-3 bg-[#0B0E14] rounded-xl border border-[#232D42]">
                 <div className="flex justify-between text-slate-500 text-[10px] mb-1">
-                  <span>LAP 01</span>
-                  <span>14:03:19</span>
+                  <span>LAP 63</span>
+                  <span>16:30:19</span>
                 </div>
-                <p className="text-slate-300 font-medium">Clean start into Turn 1, no incidents noted.</p>
+                <p className="text-slate-300 font-medium">Car 1 (VER) and Car 44 (HAM) Turn 1 contact noted - no penalty.</p>
               </div>
             </div>
           </div>
@@ -147,10 +187,10 @@ export const LiveDashboard = () => {
             <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs space-y-2">
               <div className="flex items-center space-x-2 text-amber-400 font-bold">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Medium Stint 1 Approaching Window</span>
+                <span>Undercut Analysis Active</span>
               </div>
               <p className="text-slate-300">
-                Frontrunners VER and NOR are expected into pit lane between Laps 20 and 24 for Hard compound switches.
+                Fresh Medium/Hard compound pit-stop window delta estimated at +1.85s out-lap performance.
               </p>
             </div>
           </div>
@@ -160,4 +200,5 @@ export const LiveDashboard = () => {
   );
 };
 
+export const LiveTiming = LiveDashboard;
 export default LiveDashboard;

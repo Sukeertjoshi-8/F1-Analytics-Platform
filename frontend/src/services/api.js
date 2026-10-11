@@ -28,8 +28,13 @@ export const f1Api = {
   },
 
   getLiveTiming: async () => {
-    const response = await apiClient.get('/telemetry/live');
-    return response.data;
+    try {
+      const response = await apiClient.get('/live-timing');
+      return response.data;
+    } catch {
+      const response = await apiClient.get('/telemetry/live');
+      return response.data;
+    }
   },
 
   // Strategy Engine

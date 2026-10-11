@@ -71,3 +71,54 @@ export const formatEventDate = (dateStr) => {
     return dateStr;
   }
 };
+
+/**
+ * Formats a race weekend date range using the First Practice date and the Race date.
+ * Example outputs: "Oct 8 - Oct 11", "Mar 1 - Mar 2", "May 31 - Jun 2".
+ *
+ * @param {string} [startStr] - Date/datetime string of First Practice (session 1)
+ * @param {string} [endStr] - Date/datetime string of Race (Sunday/session 5)
+ * @returns {string} Formatted weekend date range
+ */
+export const formatWeekendRange = (startStr, endStr) => {
+  if (!startStr && !endStr) return 'TBD';
+
+  const parseDate = (str) => {
+    if (!str) return null;
+    const clean = str.split(' ')[0]; // Strip time portion if present
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const raceDate = parseDate(endStr);
+  let practiceDate = parseDate(startStr);
+
+  if (!raceDate && !practiceDate) return 'TBD';
+
+  // If practiceDate is missing or invalid, estimate start as Friday (2 days before Sunday)
+  if (!practiceDate && raceDate) {
+    practiceDate = new Date(raceDate);
+    practiceDate.setDate(raceDate.getDate() - 2);
+  }
+
+  // If raceDate is missing, estimate end as Sunday (2 days after Friday)
+  if (!raceDate && practiceDate) {
+    const estimatedRace = new Date(practiceDate);
+    estimatedRace.setDate(practiceDate.getDate() + 2);
+    return formatWeekendRange(startStr, estimatedRace.toISOString().split('T')[0]);
+  }
+
+  const startMonth = practiceDate.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = practiceDate.getDate();
+  const endMonth = raceDate.toLocaleDateString('en-US', { month: 'short' });
+  const endDay = raceDate.getDate();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+  }
+  return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+};
