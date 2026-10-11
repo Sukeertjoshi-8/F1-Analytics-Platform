@@ -1,13 +1,40 @@
-from fastapi import APIRouter
+from typing import Optional
+from fastapi import APIRouter, Query, HTTPException
 from models.schemas import (
     TireDegradationRequest,
     TireDegradationResponse,
     PitStopProbabilityRequest,
     PitStopProbabilityResponse,
 )
-from services.strategy_engine import strategy_engine
+from services.strategy_engine import (
+    strategy_engine,
+    calculate_tire_degradation,
+    get_pit_window,
+)
 
 router = APIRouter(prefix="/strategy", tags=["Strategy & Predictions"])
+
+
+@router.get("/degradation")
+async def get_degradation(
+    compound: str = Query(default="MEDIUM", description="Tire compound: SOFT, MEDIUM, HARD, INTERMEDIATE, WET"),
+    laps: int = Query(default=20, ge=1, le=80, description="Lap count"),
+    track_temp: Optional[float] = Query(default=35.0, description="Track temperature in Celsius"),
+):
+    """
+    Calculate simulated pace delta (time penalty in seconds) based on lap count and compound.
+    """
+    return calculate_tire_degradation(compound=compound, current_laps=laps, track_temp=track_temp or 35.0)
+
+
+@router.get("/undercut")
+async def get_undercut(
+    driver: str = Query(default="NOR", description="Driver abbreviation (e.g. NOR, VER, LEC)"),
+):
+    """
+    Analyze gaps from session data to determine undercut viability.
+    """
+    return get_pit_window(driver_abbreviation=driver)
 
 
 @router.post("/tire-degradation", response_model=TireDegradationResponse)

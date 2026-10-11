@@ -6,13 +6,24 @@ import pandas as pd
 
 logger = logging.getLogger("f1_platform.fastf1_service")
 
-# Setup optional FastF1 caching
+# Setup FastF1 caching with prioritized f1_cache directory
+FASTF1_AVAILABLE = False
 try:
     import fastf1
-    cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
-    os.makedirs(cache_dir, exist_ok=True)
+    # Check current directory and root workspace directory for f1_cache
+    cache_dir = "f1_cache"
+    if not os.path.exists(cache_dir):
+        parent_cache = os.path.join(os.path.dirname(os.path.dirname(__file__)), "f1_cache")
+        root_cache = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "f1_cache")
+        if os.path.exists(parent_cache):
+            cache_dir = parent_cache
+        elif os.path.exists(root_cache):
+            cache_dir = root_cache
+        else:
+            os.makedirs(cache_dir, exist_ok=True)
     fastf1.Cache.enable_cache(cache_dir)
     FASTF1_AVAILABLE = True
+    logger.info(f"FastF1 cache enabled at: {cache_dir}")
 except Exception as e:
     logger.warning(f"FastF1 cache initialization notice: {e}")
     FASTF1_AVAILABLE = True if "fastf1" in locals() else False
@@ -38,7 +49,6 @@ class FastF1Service:
             schedule = fastf1.get_event_schedule(year, include_testing=False)
             
             for _, row in schedule.iterrows():
-                # Handle pandas NaT / NaN conversions
                 def clean_val(val, default=None):
                     if pd.isna(val):
                         return default
@@ -79,6 +89,78 @@ class FastF1Service:
         except Exception as e:
             logger.error(f"Error fetching calendar for year {year} from FastF1: {e}. Falling back to default calendar.")
             return self._fallback_calendar(year)
+
+    def get_latest_session_data(self, year: int = 2024) -> Dict[str, Any]:
+        """
+        Loads the most recent completed race session using FastF1 (e.g., Hungarian Grand Prix or latest round).
+        Extracts driver abbreviation, position, interval, and current tire compound.
+        Returns a JSON-ready dictionary.
+        """
+        try:
+            import fastf1
+            logger.info(f"Fetching latest session data for season {year} via FastF1...")
+            session = fastf1.get_session(year, 'latest', 'R')
+            session.load(telemetry=False, weather=False, messages=False)
+
+            leaderboard: List[Dict[str, Any]] = []
+            if session.results is not None and not session.results.empty:
+                for _, row in session.results.iterrows():
+                    abbr = str(row.get('Abbreviation', ''))
+                    pos = int(row.get('Position')) if not pd.isna(row.get('Position')) else None
+                    status = str(row.get('Status', '')) if not pd.isna(row.get('Status')) else ''
+                    time_val = row.get('Time')
+
+                    # Compute interval
+                    if pos == 1:
+                        interval = "LEADER"
+                    elif pd.notna(time_val) and hasattr(time_val, "total_seconds"):
+                        secs = time_val.total_seconds()
+                        interval = f"+{secs:.3f}s"
+                    elif status:
+                        interval = status
+                    else:
+                        interval = "-"
+
+                    # Extract current / final tire compound for this driver from laps
+                    compound = "MEDIUM"
+                    if session.laps is not None and not session.laps.empty:
+                        driver_laps = session.laps[session.laps['Driver'] == abbr]
+                        if not driver_laps.empty:
+                            compounds = driver_laps['Compound'].dropna()
+                            if not compounds.empty:
+                                compound = str(compounds.iloc[-1])
+
+                    leaderboard.append({
+                        "driver": abbr,
+                        "position": pos,
+                        "interval": interval,
+                        "tire_compound": compound,
+                        "team": str(row.get('TeamName', '')),
+                        "driver_number": str(row.get('DriverNumber', '')),
+                        "full_name": str(row.get('FullName', abbr)),
+                        "points": float(row.get('Points', 0.0)) if not pd.isna(row.get('Points')) else 0.0,
+                        "status": status,
+                    })
+
+            event_name = str(session.event.get("EventName", "Grand Prix"))
+            round_number = int(session.event.get("RoundNumber", 1)) if not pd.isna(session.event.get("RoundNumber")) else 1
+
+            return {
+                "session_name": session.name,
+                "event_name": event_name,
+                "official_name": str(session.event.get("OfficialEventName", event_name)),
+                "location": str(session.event.get("Location", "")),
+                "country": str(session.event.get("Country", "")),
+                "year": int(session.event.get("Year", year)),
+                "round_number": round_number,
+                "total_drivers": len(leaderboard),
+                "leaderboard": leaderboard,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching latest session via FastF1: {e}. Returning fallback session data.")
+            return self._fallback_latest_session()
 
     def get_session_data(self, year: int, round_num: int, session_type: str = "R") -> Dict[str, Any]:
         """
@@ -137,13 +219,12 @@ class FastF1Service:
             session = fastf1.get_session(year, round_num, session_type)
             session.load(telemetry=True, laps=True)
 
-            d1_laps = session.laps.pick_driver(driver_1)
+            d1_laps = session.laps.pick_drivers(driver_1)
             d1_fastest = d1_laps.pick_fastest()
             d1_tel = d1_fastest.get_telemetry()
 
-            # Downsample telemetry for smooth frontend rendering (e.g., every 5th or 10th sample)
-            d1_points = []
             step = max(1, len(d1_tel) // 150)
+            d1_points = []
             for _, row in d1_tel.iloc[::step].iterrows():
                 d1_points.append({
                     "distance": round(float(row["Distance"]), 1),
@@ -158,7 +239,7 @@ class FastF1Service:
             d2_points = []
             d2_lap_time = None
             if driver_2:
-                d2_laps = session.laps.pick_driver(driver_2)
+                d2_laps = session.laps.pick_drivers(driver_2)
                 d2_fastest = d2_laps.pick_fastest()
                 d2_lap_time = str(d2_fastest["LapTime"])
                 d2_tel = d2_fastest.get_telemetry()
@@ -187,18 +268,48 @@ class FastF1Service:
             }
         except Exception as e:
             logger.error(f"Error fetching telemetry: {e}")
-            # Return synthetic comparison telemetry so frontend still renders beautiful charts
             return self._synthetic_telemetry(year, round_num, driver_1, driver_2)
 
     def get_live_timing(self) -> Dict[str, Any]:
         """
-        Placeholder / live timing hook for real-time race data streams.
+        Returns live timing stream data backed by the latest session.
         """
+        return self.get_latest_session_data(year=self.current_year)
+
+    def _fallback_latest_session(self) -> Dict[str, Any]:
+        """Fallback latest session leaderboard if FastF1 is offline."""
         return {
-            "status": "connected",
-            "active_session": None,
-            "message": "Live timing stream ready for upcoming session.",
-            "timestamp": datetime.utcnow().isoformat()
+            "session_name": "Race",
+            "event_name": "Hungarian Grand Prix",
+            "official_name": "FORMULA 1 HUNGARIAN GRAND PRIX 2024",
+            "location": "Budapest",
+            "country": "Hungary",
+            "year": 2024,
+            "round_number": 13,
+            "total_drivers": 20,
+            "leaderboard": [
+                {"driver": "PIA", "position": 1, "interval": "LEADER", "tire_compound": "MEDIUM", "team": "McLaren", "driver_number": "81", "full_name": "Oscar Piastri"},
+                {"driver": "NOR", "position": 2, "interval": "+2.141s", "tire_compound": "MEDIUM", "team": "McLaren", "driver_number": "4", "full_name": "Lando Norris"},
+                {"driver": "HAM", "position": 3, "interval": "+14.880s", "tire_compound": "HARD", "team": "Mercedes", "driver_number": "44", "full_name": "Lewis Hamilton"},
+                {"driver": "LEC", "position": 4, "interval": "+19.686s", "tire_compound": "MEDIUM", "team": "Ferrari", "driver_number": "16", "full_name": "Charles Leclerc"},
+                {"driver": "VER", "position": 5, "interval": "+21.349s", "tire_compound": "MEDIUM", "team": "Red Bull Racing", "driver_number": "1", "full_name": "Max Verstappen"},
+                {"driver": "SAI", "position": 6, "interval": "+23.073s", "tire_compound": "HARD", "team": "Ferrari", "driver_number": "55", "full_name": "Carlos Sainz"},
+                {"driver": "PER", "position": 7, "interval": "+39.792s", "tire_compound": "HARD", "team": "Red Bull Racing", "driver_number": "11", "full_name": "Sergio Perez"},
+                {"driver": "RUS", "position": 8, "interval": "+42.368s", "tire_compound": "MEDIUM", "team": "Mercedes", "driver_number": "63", "full_name": "George Russell"},
+                {"driver": "TSU", "position": 9, "interval": "+77.259s", "tire_compound": "HARD", "team": "RB", "driver_number": "22", "full_name": "Yuki Tsunoda"},
+                {"driver": "STR", "position": 10, "interval": "+77.976s", "tire_compound": "HARD", "team": "Aston Martin", "driver_number": "18", "full_name": "Lance Stroll"},
+                {"driver": "ALO", "position": 11, "interval": "+82.460s", "tire_compound": "HARD", "team": "Aston Martin", "driver_number": "14", "full_name": "Fernando Alonso"},
+                {"driver": "RIC", "position": 12, "interval": "+1 Lap", "tire_compound": "HARD", "team": "RB", "driver_number": "3", "full_name": "Daniel Ricciardo"},
+                {"driver": "HUL", "position": 13, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Haas", "driver_number": "27", "full_name": "Nico Hulkenberg"},
+                {"driver": "ALB", "position": 14, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Williams", "driver_number": "23", "full_name": "Alexander Albon"},
+                {"driver": "MAG", "position": 15, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Haas", "driver_number": "20", "full_name": "Kevin Magnussen"},
+                {"driver": "BOT", "position": 16, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Kick Sauber", "driver_number": "77", "full_name": "Valtteri Bottas"},
+                {"driver": "SAR", "position": 17, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Williams", "driver_number": "2", "full_name": "Logan Sargeant"},
+                {"driver": "OCO", "position": 18, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Alpine", "driver_number": "31", "full_name": "Esteban Ocon"},
+                {"driver": "ZHO", "position": 19, "interval": "+1 Lap", "tire_compound": "HARD", "team": "Kick Sauber", "driver_number": "24", "full_name": "Zhou Guanyu"},
+                {"driver": "GAS", "position": 20, "interval": "DNF", "tire_compound": "MEDIUM", "team": "Alpine", "driver_number": "10", "full_name": "Pierre Gasly"},
+            ],
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def _fallback_calendar(self, year: int) -> List[Dict[str, Any]]:
@@ -279,7 +390,6 @@ class FastF1Service:
             })
 
             if d2:
-                # Add minor realistic variance for driver 2
                 speed_delta = 4 * math.cos(theta * 1.5)
                 t2.append({
                     "distance": dist,
@@ -305,3 +415,8 @@ class FastF1Service:
 
 
 fastf1_service = FastF1Service()
+
+
+def get_latest_session_data(year: int = 2024) -> Dict[str, Any]:
+    """Module-level function to retrieve the most recent completed race session data."""
+    return fastf1_service.get_latest_session_data(year=year)
