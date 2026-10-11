@@ -3,13 +3,32 @@ import { Calendar as CalendarIcon, MapPin, ChevronDown, ChevronUp, Zap, Radio } 
 import { formatEventDate } from '../utils/dateUtils';
 
 export const RaceCard = ({
+  race,
   event,
-  isExpanded = false,
+  index,
+  expandedIndex,
+  setExpandedIndex,
+  isExpanded: externalIsExpanded,
   onToggleExpand,
   isActiveRace = false,
 }) => {
-  const isSprint = event.event_format?.toLowerCase().includes('sprint');
-  const dateFormatted = formatEventDate(event.event_date);
+  const item = race || event;
+  const isSprint = item.event_format?.toLowerCase().includes('sprint');
+  const dateFormatted = formatEventDate(item.event_date);
+
+  // Determine expanded state based on strict array index if provided
+  const isExpanded =
+    expandedIndex !== undefined && index !== undefined
+      ? expandedIndex === index
+      : externalIsExpanded ?? false;
+
+  const handleToggle = () => {
+    if (setExpandedIndex && index !== undefined) {
+      setExpandedIndex(expandedIndex === index ? null : index);
+    } else if (onToggleExpand) {
+      onToggleExpand();
+    }
+  };
 
   return (
     <div
@@ -39,7 +58,7 @@ export const RaceCard = ({
                   : 'bg-[#1C2333] text-slate-300 border-[#232D42]'
               }`}
             >
-              ROUND {String(event.round_number).padStart(2, '0')}
+              ROUND {String(item.round_number || (index !== undefined ? index + 1 : 1)).padStart(2, '0')}
             </span>
 
             {/* LIVE NOW Badge for Active Race Weekend */}
@@ -60,19 +79,19 @@ export const RaceCard = ({
           </div>
 
           <span className="text-xs font-semibold text-slate-400 tracking-wide">
-            {event.country}
+            {item.country}
           </span>
         </div>
 
         {/* Grand Prix Name */}
         <h3 className="text-lg font-bold text-white group-hover:text-[#E10600] transition-colors duration-200 line-clamp-1 font-racing">
-          {event.event_name}
+          {item.event_name}
         </h3>
 
         {/* Official circuit location */}
         <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-1.5">
           <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="truncate">{event.location}</span>
+          <span className="truncate">{item.location}</span>
         </div>
       </div>
 
@@ -84,7 +103,7 @@ export const RaceCard = ({
         </div>
         <button
           type="button"
-          onClick={onToggleExpand}
+          onClick={handleToggle}
           className="flex items-center space-x-1 text-slate-400 hover:text-white transition-colors text-[11px] font-medium py-1 px-1.5 rounded hover:bg-[#1C2333]"
           aria-expanded={isExpanded}
         >
@@ -101,45 +120,45 @@ export const RaceCard = ({
             {isSprint && <span className="text-amber-400 text-[10px]">Sprint Format</span>}
           </div>
           <div className="grid grid-cols-2 gap-2 text-slate-300">
-            {event.session1 && (
+            {item.session1 && (
               <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
-                <div className="text-[10px] text-slate-500">{event.session1}</div>
+                <div className="text-[10px] text-slate-500">{item.session1}</div>
                 <div className="font-mono text-[11px] truncate">
-                  {event.session1_date ? event.session1_date.split(' ')[0] : 'Scheduled'}
+                  {item.session1_date ? item.session1_date.split(' ')[0] : 'Scheduled'}
                 </div>
               </div>
             )}
-            {event.session2 && (
+            {item.session2 && (
               <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
-                <div className="text-[10px] text-slate-500">{event.session2}</div>
+                <div className="text-[10px] text-slate-500">{item.session2}</div>
                 <div className="font-mono text-[11px] truncate">
-                  {event.session2_date ? event.session2_date.split(' ')[0] : 'Scheduled'}
+                  {item.session2_date ? item.session2_date.split(' ')[0] : 'Scheduled'}
                 </div>
               </div>
             )}
-            {event.session3 && (
+            {item.session3 && (
               <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
-                <div className="text-[10px] text-slate-500">{event.session3}</div>
+                <div className="text-[10px] text-slate-500">{item.session3}</div>
                 <div className="font-mono text-[11px] truncate">
-                  {event.session3_date ? event.session3_date.split(' ')[0] : 'Scheduled'}
+                  {item.session3_date ? item.session3_date.split(' ')[0] : 'Scheduled'}
                 </div>
               </div>
             )}
-            {event.session4 && (
+            {item.session4 && (
               <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
-                <div className="text-[10px] text-slate-500">{event.session4}</div>
+                <div className="text-[10px] text-slate-500">{item.session4}</div>
                 <div className="font-mono text-[11px] truncate">
-                  {event.session4_date ? event.session4_date.split(' ')[0] : 'Scheduled'}
+                  {item.session4_date ? item.session4_date.split(' ')[0] : 'Scheduled'}
                 </div>
               </div>
             )}
-            {event.session5 && (
+            {item.session5 && (
               <div className="col-span-2 bg-[#E10600]/10 p-2 rounded border border-[#E10600]/30 flex justify-between items-center">
                 <div className="text-[11px] font-bold text-white uppercase">
-                  {event.session5} (Grand Prix)
+                  {item.session5} (Grand Prix)
                 </div>
                 <div className="font-mono text-[11px] text-[#E10600] font-semibold">
-                  {event.session5_date ? event.session5_date.split(' ')[0] : 'Sunday'}
+                  {item.session5_date ? item.session5_date.split(' ')[0] : 'Sunday'}
                 </div>
               </div>
             )}

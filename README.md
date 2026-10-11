@@ -4,7 +4,7 @@ A full-stack, real-time analytics and predictive modeling platform for Formula 1
 
 ---
 
-## 🏎️ Overview
+## Overview
 
 This platform provides:
 - **Race Calendar & Session Timing:** Real-time and historical race schedule, grand prix locations, session timetables, and circuit details.
@@ -14,7 +14,7 @@ This platform provides:
 
 ---
 
-## 🏗️ Project Architecture
+##  Project Architecture
 
 ```
 F1_Analytics_and_Prediction/
@@ -40,7 +40,7 @@ F1_Analytics_and_Prediction/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Backend Setup
 1. Navigate to the `backend/` directory:

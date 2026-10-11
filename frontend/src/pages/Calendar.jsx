@@ -23,20 +23,15 @@ export const Calendar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
 
-  // Strict ID-based state for accordion: only one card expands at a time
-  const [expandedRaceId, setExpandedRaceId] = useState(null);
+  // Strict array index-based state for dropdown accordion
+  const [expandedIndex, setExpandedIndex] = useState(null);
 
   const fetchCalendar = async (selectedYear) => {
     setLoading(true);
     setError(null);
     try {
       const data = await f1Api.getCalendar(selectedYear);
-      // Ensure every race object has a guaranteed unique string id
-      const normalizedEvents = (data.events || []).map((ev) => ({
-        ...ev,
-        id: ev.id ? String(ev.id) : String(ev.round_number || ev.event_name),
-      }));
-      setEvents(normalizedEvents);
+      setEvents(data.events || []);
     } catch (err) {
       console.error('Failed to load race calendar:', err);
       setError(
@@ -51,7 +46,7 @@ export const Calendar = () => {
   useEffect(() => {
     fetchCalendar(year);
     // Reset expanded accordion when season changes
-    setExpandedRaceId(null);
+    setExpandedIndex(null);
   }, [year]);
 
   // Filtered list
@@ -70,7 +65,8 @@ export const Calendar = () => {
   const sprintCount = events.filter((e) => e.event_format?.toLowerCase().includes('sprint')).length;
 
   // Check if any race in current season is happening this week
-  const activeRace = events.find((race) => isCurrentRaceWeek(race));
+  const activeRaceIndex = filteredEvents.findIndex((race) => isCurrentRaceWeek(race));
+  const activeRace = activeRaceIndex !== -1 ? filteredEvents[activeRaceIndex] : null;
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -127,10 +123,10 @@ export const Calendar = () => {
               </div>
             </div>
             <button
-              onClick={() => setExpandedRaceId(expandedRaceId === activeRace.id ? null : activeRace.id)}
+              onClick={() => setExpandedIndex(expandedIndex === activeRaceIndex ? null : activeRaceIndex)}
               className="text-xs font-bold text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors shrink-0"
             >
-              {expandedRaceId === activeRace.id ? 'Hide Weekend Timetable' : 'View Weekend Timetable'}
+              {expandedIndex === activeRaceIndex ? 'Hide Weekend Timetable' : 'View Weekend Timetable'}
             </button>
           </div>
         )}
@@ -254,15 +250,14 @@ export const Calendar = () => {
         </div>
       ) : filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredEvents.map((race) => {
-            const isExpanded = expandedRaceId === race.id;
+          {filteredEvents.map((race, index) => {
             const isActive = isCurrentRaceWeek(race);
             const isSprint = race.event_format?.toLowerCase().includes('sprint');
             const dateFormatted = formatEventDate(race.event_date);
 
             return (
               <div
-                key={race.id}
+                key={race.id || index}
                 className={`group relative bg-[#131823] rounded-xl border overflow-hidden f1-card-hover flex flex-col justify-between transition-all duration-300 ${
                   isActive
                     ? 'ring-2 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] border-red-500/80 bg-gradient-to-b from-[#18131d] to-[#131823]'
@@ -289,7 +284,7 @@ export const Calendar = () => {
                             : 'bg-[#1C2333] text-slate-300 border-[#232D42]'
                         }`}
                       >
-                        ROUND {String(race.round_number).padStart(2, '0')}
+                        ROUND {String(race.round_number || index + 1).padStart(2, '0')}
                       </span>
 
                       {/* LIVE NOW Badge */}
@@ -334,12 +329,12 @@ export const Calendar = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setExpandedRaceId(expandedRaceId === race.id ? null : race.id)}
+                    onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
                     className="flex items-center space-x-1 text-slate-400 hover:text-white transition-colors text-[11px] font-medium py-1 px-2 rounded hover:bg-[#1C2333]"
-                    aria-expanded={expandedRaceId === race.id}
+                    aria-expanded={expandedIndex === index}
                   >
                     <span>Sessions</span>
-                    {expandedRaceId === race.id ? (
+                    {expandedIndex === index ? (
                       <ChevronUp className="w-3.5 h-3.5" />
                     ) : (
                       <ChevronDown className="w-3.5 h-3.5" />
@@ -347,8 +342,8 @@ export const Calendar = () => {
                   </button>
                 </div>
 
-                {/* Conditionally rendered sessions based on expandedRaceId === race.id */}
-                {expandedRaceId === race.id && (
+                {/* Conditionally rendered sessions based on expandedIndex === index */}
+                {expandedIndex === index && (
                   <div className="sessions-dropdown-content p-4 bg-[#0B0E14] border-t border-[#232D42] text-xs space-y-2 animate-fadeIn">
                     <div className="font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1 flex items-center justify-between">
                       <span>Weekend Timetable</span>
