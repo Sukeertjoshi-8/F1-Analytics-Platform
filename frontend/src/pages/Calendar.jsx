@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { f1Api } from '../services/api';
 import { RaceCard } from '../components/RaceCard';
+import { isCurrentRaceWeek } from '../utils/dateUtils';
 import {
   Calendar as CalendarIcon,
   Search,
@@ -11,6 +12,7 @@ import {
   Flag,
   Sparkles,
   Zap,
+  Radio,
 } from 'lucide-react';
 
 export const Calendar = () => {
@@ -20,6 +22,9 @@ export const Calendar = () => {
   const [year, setYear] = useState(2024);
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
+
+  // Step 1: Track expandedRaceId so only one race card expands at a time
+  const [expandedRaceId, setExpandedRaceId] = useState(null);
 
   const fetchCalendar = async (selectedYear) => {
     setLoading(true);
@@ -40,6 +45,8 @@ export const Calendar = () => {
 
   useEffect(() => {
     fetchCalendar(year);
+    // Reset expanded accordion when season changes
+    setExpandedRaceId(null);
   }, [year]);
 
   // Filtered list
@@ -56,6 +63,9 @@ export const Calendar = () => {
   });
 
   const sprintCount = events.filter((e) => e.event_format?.toLowerCase().includes('sprint')).length;
+
+  // Check if any race in current season is happening this week
+  const activeRace = events.find((ev) => isCurrentRaceWeek(ev));
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -94,6 +104,32 @@ export const Calendar = () => {
           </div>
         </div>
 
+        {/* Live Race Announcement Banner if a race is active this week */}
+        {activeRace && (
+          <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-red-950/40 via-red-900/20 to-transparent border border-red-500/40 flex items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-center space-x-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <div>
+                <span className="text-[11px] font-black uppercase text-red-400 tracking-wider">
+                  ACTIVE RACE WEEKEND
+                </span>
+                <p className="text-sm font-bold text-white font-racing">
+                  Round {activeRace.round_number}: {activeRace.event_name} ({activeRace.location})
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setExpandedRaceId(activeRace.round_number)}
+              className="text-xs font-bold text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+            >
+              View Weekend Timetable
+            </button>
+          </div>
+        )}
+
         {/* Quick Stats Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-[#232D42]/60">
           <div>
@@ -109,8 +145,10 @@ export const Calendar = () => {
             <div className="text-2xl font-black text-emerald-400 font-racing">5</div>
           </div>
           <div>
-            <div className="text-[11px] text-slate-500 uppercase font-semibold">FastF1 Integration</div>
-            <div className="text-2xl font-black text-sky-400 font-racing">Active</div>
+            <div className="text-[11px] text-slate-500 uppercase font-semibold">Live Week Status</div>
+            <div className="text-2xl font-black text-sky-400 font-racing">
+              {activeRace ? 'Live Grand Prix' : 'Scheduled'}
+            </div>
           </div>
         </div>
       </div>
@@ -211,9 +249,21 @@ export const Calendar = () => {
         </div>
       ) : filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredEvents.map((event) => (
-            <RaceCard key={event.round_number || event.event_name} event={event} />
-          ))}
+          {filteredEvents.map((event) => {
+            const raceId = event.round_number ?? event.event_name;
+            const isExpanded = expandedRaceId === raceId;
+            const isActive = isCurrentRaceWeek(event);
+
+            return (
+              <RaceCard
+                key={raceId}
+                event={event}
+                isExpanded={isExpanded}
+                onToggleExpand={() => setExpandedRaceId(isExpanded ? null : raceId)}
+                isActiveRace={isActive}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="py-16 text-center bg-[#131823] rounded-2xl border border-[#232D42]">
