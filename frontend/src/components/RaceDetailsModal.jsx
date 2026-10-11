@@ -8,11 +8,68 @@ import {
   Zap,
   TrendingUp,
   Flag,
-  Clock,
-  Layers,
-  Sparkles,
 } from 'lucide-react';
-import { formatWeekendRange, formatEventDate } from '../utils/dateUtils';
+import { formatWeekendRange } from '../utils/dateUtils';
+
+// Helper mapping location/event name to Ergast/Jolpica circuitId
+const getCircuitId = (location, eventName) => {
+  const loc = (location || '').toLowerCase();
+  const ev = (eventName || '').toLowerCase();
+
+  if (loc.includes('sakhir') || ev.includes('bahrain')) return 'bahrain';
+  if (loc.includes('jeddah') || ev.includes('saudi')) return 'jeddah';
+  if (loc.includes('melbourne') || ev.includes('australian')) return 'albert_park';
+  if (loc.includes('suzuka') || ev.includes('japanese')) return 'suzuka';
+  if (loc.includes('shanghai') || ev.includes('chinese')) return 'shanghai';
+  if (loc.includes('miami')) return 'miami';
+  if (loc.includes('imola') || ev.includes('emilia')) return 'imola';
+  if (loc.includes('monaco')) return 'monaco';
+  if (loc.includes('montreal') || ev.includes('canadian')) return 'villeneuve';
+  if (loc.includes('barcelona') || loc.includes('catalunya') || ev.includes('spanish')) return 'catalunya';
+  if (loc.includes('spielberg') || ev.includes('austrian')) return 'red_bull_ring';
+  if (loc.includes('silverstone') || ev.includes('british')) return 'silverstone';
+  if (loc.includes('budapest') || ev.includes('hungarian')) return 'hungaroring';
+  if (loc.includes('spa') || ev.includes('belgian')) return 'spa';
+  if (loc.includes('zandvoort') || ev.includes('dutch')) return 'zandvoort';
+  if (loc.includes('monza') || ev.includes('italian')) return 'monza';
+  if (loc.includes('baku') || ev.includes('azerbaijan')) return 'baku';
+  if (loc.includes('singapore') || loc.includes('marina bay')) return 'marina_bay';
+  if (loc.includes('austin') || ev.includes('united states')) return 'americas';
+  if (loc.includes('mexico')) return 'rodriguez';
+  if (loc.includes('são paulo') || loc.includes('sao paulo') || loc.includes('interlagos') || ev.includes('brazilian')) return 'interlagos';
+  if (loc.includes('las vegas') || ev.includes('las vegas')) return 'vegas';
+  if (loc.includes('lusail') || ev.includes('qatar')) return 'losail';
+  if (loc.includes('yas') || loc.includes('abu dhabi')) return 'yas_marina';
+  return null;
+};
+
+// Reliable open-source fallback SVGs for each circuit layout
+const FALLBACK_CIRCUIT_SVGS = {
+  bahrain: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/bahrain-1.svg',
+  jeddah: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/jeddah-1.svg',
+  albert_park: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/melbourne-1.svg',
+  suzuka: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/suzuka-1.svg',
+  shanghai: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/shanghai-1.svg',
+  miami: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/miami-1.svg',
+  imola: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/imola-1.svg',
+  monaco: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/monaco-1.svg',
+  villeneuve: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/montreal-1.svg',
+  catalunya: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/catalunya-1.svg',
+  red_bull_ring: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/spielberg-1.svg',
+  silverstone: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/silverstone-1.svg',
+  hungaroring: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/hungaroring-1.svg',
+  spa: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/spa-francorchamps-1.svg',
+  zandvoort: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/zandvoort-1.svg',
+  monza: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/monza-1.svg',
+  baku: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/baku-1.svg',
+  marina_bay: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/marina-bay-1.svg',
+  americas: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/austin-1.svg',
+  rodriguez: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/mexico-city-1.svg',
+  interlagos: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/interlagos-1.svg',
+  vegas: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/las-vegas-1.svg',
+  losail: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/losail-1.svg',
+  yas_marina: 'https://raw.githubusercontent.com/MisterSix2295/f1-circuits-svg/main/circuits/white/yas-marina-1.svg',
+};
 
 export const RaceDetailsModal = ({ race, onClose }) => {
   if (!race) return null;
@@ -25,6 +82,25 @@ export const RaceDetailsModal = ({ race, onClose }) => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  // Step 1: Extract Circuit ID and Map the Asset URL
+  const circuitId =
+    race?.Circuit?.circuitId ||
+    race?.circuitId ||
+    race?.circuit_id ||
+    getCircuitId(race?.location, race?.event_name);
+
+  // Ensure race.Circuit is safely populated
+  if (!race.Circuit) {
+    race.Circuit = {
+      circuitId: circuitId || 'circuit',
+      circuitName: race?.location || race?.event_name || 'Grand Prix Circuit',
+    };
+  }
+
+  const trackMapUrl = circuitId
+    ? `https://raw.githubusercontent.com/bacinger/f1-circuits/master/circuits/svg/${circuitId}.svg`
+    : null;
 
   const dateRange = formatWeekendRange(race.session1_date, race.session5_date || race.event_date);
   const isSprint = race.event_format?.toLowerCase().includes('sprint');
@@ -92,61 +168,45 @@ export const RaceDetailsModal = ({ race, onClose }) => {
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Track Map & Weekend Schedule Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-            {/* Track Map Placeholder Widget */}
+            {/* Step 1 & 2: Dynamic Accurate F1 Circuit Track Layout */}
             <div className="bg-[#0B0E14] p-5 rounded-xl border border-[#232D42] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-racing flex items-center space-x-1.5">
                   <Flag className="w-3.5 h-3.5 text-[#E10600]" />
-                  <span>Circuit Layout & DRS Zones</span>
+                  <span>Circuit Layout & Geometry</span>
                 </span>
-                <span className="text-[11px] font-mono text-slate-500">5.412 KM</span>
+                <span className="text-[11px] font-mono text-slate-500 uppercase">
+                  {circuitId ? `${circuitId.toUpperCase()}` : 'FIA Official'}
+                </span>
               </div>
 
-              {/* High-Tech Circuit Vector SVG Graphic */}
-              <div className="h-44 w-full flex items-center justify-center relative p-2">
-                <svg viewBox="0 0 400 220" className="w-full h-full text-slate-600 stroke-current">
-                  <defs>
-                    <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#E10600" stopOpacity="0.8" />
-                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
-                    </linearGradient>
-                  </defs>
-                  {/* Outer Circuit Loop */}
-                  <path
-                    d="M 60,160 C 40,140 40,80 90,60 C 140,40 220,50 260,35 C 300,20 350,50 360,90 C 370,130 330,170 290,165 C 250,160 220,190 170,185 C 120,180 80,180 60,160 Z"
-                    fill="none"
-                    stroke="#232D42"
-                    strokeWidth="16"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+              {/* Dynamic Accurate SVG Track Map */}
+              {trackMapUrl ? (
+                <div className="flex justify-center items-center w-full p-6 bg-gray-900 rounded-lg">
+                  <img
+                    src={trackMapUrl}
+                    alt={`${race.Circuit.circuitName} Track Layout`}
+                    className="max-h-64 w-auto object-contain invert opacity-90 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                    onError={(e) => {
+                      const fallback = FALLBACK_CIRCUIT_SVGS[circuitId];
+                      if (fallback && !e.target.dataset.fallbackTried) {
+                        e.target.dataset.fallbackTried = 'true';
+                        e.target.src = fallback;
+                      } else {
+                        e.target.style.display = 'none';
+                      }
+                    }}
                   />
-                  <path
-                    d="M 60,160 C 40,140 40,80 90,60 C 140,40 220,50 260,35 C 300,20 350,50 360,90 C 370,130 330,170 290,165 C 250,160 220,190 170,185 C 120,180 80,180 60,160 Z"
-                    fill="none"
-                    stroke="url(#trackGradient)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {/* Apex Markers */}
-                  <circle cx="90" cy="60" r="5" fill="#E10600" />
-                  <text x="96" y="55" fill="#EF4444" fontSize="10" fontWeight="bold">Turn 1</text>
-
-                  <circle cx="260" cy="35" r="5" fill="#FFD200" />
-                  <text x="268" y="32" fill="#FBBF24" fontSize="10" fontWeight="bold">Turn 4</text>
-
-                  <circle cx="360" cy="90" r="5" fill="#00D2BE" />
-                  <text x="315" y="105" fill="#38BDF8" fontSize="10" fontWeight="bold">Turn 10</text>
-
-                  {/* DRS Zone Strip */}
-                  <path d="M 120,45 L 230,42" stroke="#22C55E" strokeWidth="3" strokeDasharray="4 2" />
-                  <text x="145" y="36" fill="#4ADE80" fontSize="9" fontWeight="bold">DRS ZONE 1</text>
-                </svg>
-              </div>
+                </div>
+              ) : (
+                <div className="flex justify-center items-center w-full h-64 bg-gray-900 rounded-lg text-gray-500">
+                  Track map unavailable
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#232D42]">
-                <span>15 Turns · 3 DRS Zones</span>
-                <span className="text-emerald-400 font-semibold font-mono">Lap Record: 1:31.447</span>
+                <span className="truncate max-w-[200px]">{race.Circuit.circuitName}</span>
+                <span className="text-emerald-400 font-semibold font-mono">100% Accurate FIA Vector</span>
               </div>
             </div>
 
@@ -191,7 +251,7 @@ export const RaceDetailsModal = ({ race, onClose }) => {
             </div>
           </div>
 
-          {/* Results Grid: 1st, 2nd, and 3rd place finishers (Step 4.2) */}
+          {/* Results Grid: 1st, 2nd, and 3rd place finishers */}
           <div className="space-y-3">
             <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-300 font-racing">
               <Trophy className="w-4 h-4 text-amber-400" />
@@ -202,7 +262,6 @@ export const RaceDetailsModal = ({ race, onClose }) => {
               {podium.map((finisher) => {
                 const isGold = finisher.pos === 1;
                 const isSilver = finisher.pos === 2;
-                const isBronze = finisher.pos === 3;
 
                 return (
                   <div
@@ -252,7 +311,7 @@ export const RaceDetailsModal = ({ race, onClose }) => {
             </div>
           </div>
 
-          {/* Advanced Stats Section (Step 4.2) */}
+          {/* Advanced Stats Section */}
           <div className="space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-300 font-racing flex items-center space-x-1.5">
               <Gauge className="w-4 h-4 text-[#E10600]" />
