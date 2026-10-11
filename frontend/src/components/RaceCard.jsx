@@ -95,7 +95,7 @@ export const RaceCard = ({
 
       {/* Expandable Timetable */}
       {isExpanded && (
-        <div className="p-4 bg-[#0B0E14] border-t border-[#232D42] text-xs space-y-2 animate-fadeIn">
+        <div className="sessions-dropdown-content p-4 bg-[#0B0E14] border-t border-[#232D42] text-xs space-y-2 animate-fadeIn">
           <div className="font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1 flex items-center justify-between">
             <span>Weekend Timetable</span>
             {isSprint && <span className="text-amber-400 text-[10px]">Sprint Format</span>}

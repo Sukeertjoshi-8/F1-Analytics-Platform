@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { f1Api } from '../services/api';
-import { RaceCard } from '../components/RaceCard';
-import { isCurrentRaceWeek } from '../utils/dateUtils';
+import { isCurrentRaceWeek, formatEventDate } from '../utils/dateUtils';
 import {
   Calendar as CalendarIcon,
   Search,
@@ -9,8 +8,9 @@ import {
   RefreshCw,
   Trophy,
   AlertCircle,
-  Flag,
-  Sparkles,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
   Zap,
   Radio,
 } from 'lucide-react';
@@ -23,7 +23,7 @@ export const Calendar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
 
-  // Step 1: Track expandedRaceId so only one race card expands at a time
+  // Strict ID-based state for accordion: only one card expands at a time
   const [expandedRaceId, setExpandedRaceId] = useState(null);
 
   const fetchCalendar = async (selectedYear) => {
@@ -31,7 +31,12 @@ export const Calendar = () => {
     setError(null);
     try {
       const data = await f1Api.getCalendar(selectedYear);
-      setEvents(data.events || []);
+      // Ensure every race object has a guaranteed unique string id
+      const normalizedEvents = (data.events || []).map((ev) => ({
+        ...ev,
+        id: ev.id ? String(ev.id) : String(ev.round_number || ev.event_name),
+      }));
+      setEvents(normalizedEvents);
     } catch (err) {
       console.error('Failed to load race calendar:', err);
       setError(
@@ -50,13 +55,13 @@ export const Calendar = () => {
   }, [year]);
 
   // Filtered list
-  const filteredEvents = events.filter((ev) => {
+  const filteredEvents = events.filter((race) => {
     const matchesSearch =
-      ev.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ev.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ev.location.toLowerCase().includes(searchQuery.toLowerCase());
+      race.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      race.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      race.location.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const isSprint = ev.event_format?.toLowerCase().includes('sprint');
+    const isSprint = race.event_format?.toLowerCase().includes('sprint');
     if (formatFilter === 'sprint') return matchesSearch && isSprint;
     if (formatFilter === 'conventional') return matchesSearch && !isSprint;
     return matchesSearch;
@@ -65,7 +70,7 @@ export const Calendar = () => {
   const sprintCount = events.filter((e) => e.event_format?.toLowerCase().includes('sprint')).length;
 
   // Check if any race in current season is happening this week
-  const activeRace = events.find((ev) => isCurrentRaceWeek(ev));
+  const activeRace = events.find((race) => isCurrentRaceWeek(race));
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -122,10 +127,10 @@ export const Calendar = () => {
               </div>
             </div>
             <button
-              onClick={() => setExpandedRaceId(activeRace.round_number)}
+              onClick={() => setExpandedRaceId(expandedRaceId === activeRace.id ? null : activeRace.id)}
               className="text-xs font-bold text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors shrink-0"
             >
-              View Weekend Timetable
+              {expandedRaceId === activeRace.id ? 'Hide Weekend Timetable' : 'View Weekend Timetable'}
             </button>
           </div>
         )}
@@ -230,7 +235,7 @@ export const Calendar = () => {
         </div>
       )}
 
-      {/* Grid of Races or Loading Skeletons */}
+      {/* Grid of Races */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {[...Array(8)].map((_, i) => (
@@ -249,19 +254,153 @@ export const Calendar = () => {
         </div>
       ) : filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredEvents.map((event) => {
-            const raceId = event.round_number ?? event.event_name;
-            const isExpanded = expandedRaceId === raceId;
-            const isActive = isCurrentRaceWeek(event);
+          {filteredEvents.map((race) => {
+            const isExpanded = expandedRaceId === race.id;
+            const isActive = isCurrentRaceWeek(race);
+            const isSprint = race.event_format?.toLowerCase().includes('sprint');
+            const dateFormatted = formatEventDate(race.event_date);
 
             return (
-              <RaceCard
-                key={raceId}
-                event={event}
-                isExpanded={isExpanded}
-                onToggleExpand={() => setExpandedRaceId(isExpanded ? null : raceId)}
-                isActiveRace={isActive}
-              />
+              <div
+                key={race.id}
+                className={`group relative bg-[#131823] rounded-xl border overflow-hidden f1-card-hover flex flex-col justify-between transition-all duration-300 ${
+                  isActive
+                    ? 'ring-2 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] border-red-500/80 bg-gradient-to-b from-[#18131d] to-[#131823]'
+                    : 'border-[#232D42]'
+                }`}
+              >
+                {/* Top accent glow line */}
+                <div
+                  className={`absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-300 ${
+                    isActive
+                      ? 'bg-[#E10600] opacity-100 shadow-[0_0_10px_#E10600]'
+                      : 'bg-gradient-to-r from-transparent via-[#E10600] to-transparent opacity-0 group-hover:opacity-100'
+                  }`}
+                />
+
+                {/* Card Header */}
+                <div className="p-5 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-2.5 py-1 text-[11px] font-black uppercase tracking-wider rounded border ${
+                          isActive
+                            ? 'bg-red-500/20 text-red-200 border-red-500/40'
+                            : 'bg-[#1C2333] text-slate-300 border-[#232D42]'
+                        }`}
+                      >
+                        ROUND {String(race.round_number).padStart(2, '0')}
+                      </span>
+
+                      {/* LIVE NOW Badge */}
+                      {isActive && (
+                        <span className="flex items-center space-x-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-red-600 text-white rounded-full animate-pulse shadow-md shadow-red-500/50">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-0.5" />
+                          <Radio className="w-2.5 h-2.5" />
+                          <span>LIVE NOW</span>
+                        </span>
+                      )}
+
+                      {isSprint && !isActive && (
+                        <span className="flex items-center space-x-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">
+                          <Zap className="w-2.5 h-2.5" />
+                          <span>Sprint</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-semibold text-slate-400 tracking-wide">
+                      {race.country}
+                    </span>
+                  </div>
+
+                  {/* Grand Prix Name */}
+                  <h3 className="text-lg font-bold text-white group-hover:text-[#E10600] transition-colors duration-200 line-clamp-1 font-racing">
+                    {race.event_name}
+                  </h3>
+
+                  {/* Circuit Location */}
+                  <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="truncate">{race.location}</span>
+                  </div>
+                </div>
+
+                {/* Date & Dropdown Button */}
+                <div className="px-5 py-3 border-t border-[#232D42]/60 bg-[#0E121B]/60 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-2 text-slate-300">
+                    <CalendarIcon className="w-3.5 h-3.5 text-[#E10600]" />
+                    <span className="font-medium">{dateFormatted}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRaceId(expandedRaceId === race.id ? null : race.id)}
+                    className="flex items-center space-x-1 text-slate-400 hover:text-white transition-colors text-[11px] font-medium py-1 px-2 rounded hover:bg-[#1C2333]"
+                    aria-expanded={expandedRaceId === race.id}
+                  >
+                    <span>Sessions</span>
+                    {expandedRaceId === race.id ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Conditionally rendered sessions based on expandedRaceId === race.id */}
+                {expandedRaceId === race.id && (
+                  <div className="sessions-dropdown-content p-4 bg-[#0B0E14] border-t border-[#232D42] text-xs space-y-2 animate-fadeIn">
+                    <div className="font-semibold text-slate-400 uppercase tracking-wider text-[10px] mb-1 flex items-center justify-between">
+                      <span>Weekend Timetable</span>
+                      {isSprint && <span className="text-amber-400 text-[10px]">Sprint Format</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-slate-300">
+                      {race.session1 && (
+                        <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
+                          <div className="text-[10px] text-slate-500">{race.session1}</div>
+                          <div className="font-mono text-[11px] truncate">
+                            {race.session1_date ? race.session1_date.split(' ')[0] : 'Scheduled'}
+                          </div>
+                        </div>
+                      )}
+                      {race.session2 && (
+                        <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
+                          <div className="text-[10px] text-slate-500">{race.session2}</div>
+                          <div className="font-mono text-[11px] truncate">
+                            {race.session2_date ? race.session2_date.split(' ')[0] : 'Scheduled'}
+                          </div>
+                        </div>
+                      )}
+                      {race.session3 && (
+                        <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
+                          <div className="text-[10px] text-slate-500">{race.session3}</div>
+                          <div className="font-mono text-[11px] truncate">
+                            {race.session3_date ? race.session3_date.split(' ')[0] : 'Scheduled'}
+                          </div>
+                        </div>
+                      )}
+                      {race.session4 && (
+                        <div className="bg-[#131823] p-2 rounded border border-[#232D42]/80">
+                          <div className="text-[10px] text-slate-500">{race.session4}</div>
+                          <div className="font-mono text-[11px] truncate">
+                            {race.session4_date ? race.session4_date.split(' ')[0] : 'Scheduled'}
+                          </div>
+                        </div>
+                      )}
+                      {race.session5 && (
+                        <div className="col-span-2 bg-[#E10600]/10 p-2 rounded border border-[#E10600]/30 flex justify-between items-center">
+                          <div className="text-[11px] font-bold text-white uppercase">
+                            {race.session5} (Grand Prix)
+                          </div>
+                          <div className="font-mono text-[11px] text-[#E10600] font-semibold">
+                            {race.session5_date ? race.session5_date.split(' ')[0] : 'Sunday'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

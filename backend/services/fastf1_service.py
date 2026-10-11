@@ -51,6 +51,7 @@ class FastF1Service:
                     continue  # skip testing sessions if present
 
                 event_dict = {
+                    "id": str(round_number),
                     "round_number": round_number,
                     "country": clean_val(row.get("Country"), "Unknown"),
                     "location": clean_val(row.get("Location"), "Unknown"),
@@ -232,6 +233,7 @@ class FastF1Service:
         events = []
         for idx, (name, loc, city, country, date_str) in enumerate(circuits, start=1):
             events.append({
+                "id": str(idx),
                 "round_number": idx,
                 "country": country,
                 "location": f"{city}, {loc}",

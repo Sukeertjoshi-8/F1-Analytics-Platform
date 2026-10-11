@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 
 class RaceEvent(BaseModel):
+    id: Optional[str] = Field(default=None, description="Unique race event ID")
     round_number: int = Field(..., description="Round number of the championship")
     country: str = Field(..., description="Country where the race is hosted")
     location: str = Field(..., description="City / Circuit location")
