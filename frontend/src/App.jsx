@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Navbar, ChampionshipStandings } from './components';
+import { Navbar } from './components';
 import { Calendar, LiveDashboard, TelemetryCompare, StrategyPredictor } from './pages';
 
 function App() {
@@ -16,9 +16,9 @@ function App() {
         {/* Main Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Routes>
-            <Route path="/" element={<Calendar defaultYear={currentYear} />} />
+            <Route path="/" element={<Calendar defaultYear={currentYear} initialView="calendar" />} />
             <Route path="/calendar" element={<Navigate to="/" replace />} />
-            <Route path="/standings" element={<ChampionshipStandings />} />
+            <Route path="/standings" element={<Calendar defaultYear={currentYear} initialView="standings" />} />
             <Route path="/live" element={<LiveDashboard />} />
             <Route path="/telemetry" element={<TelemetryCompare />} />
             <Route path="/strategy" element={<StrategyPredictor />} />
