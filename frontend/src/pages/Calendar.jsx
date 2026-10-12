@@ -421,6 +421,7 @@ export const Calendar = ({ defaultYear, initialView = 'calendar' }) => {
       {selectedRace && (
         <RaceDetailsModal
           race={selectedRace}
+          year={year}
           onClose={() => setSelectedRace(null)}
         />
       )}

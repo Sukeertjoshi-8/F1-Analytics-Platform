@@ -56,6 +56,12 @@ export const f1Api = {
   getModelStatus: async () => {
     const response = await apiClient.get('/strategy/model-status');
     return response.data;
+  },
+
+  // Advanced Race Stats
+  getRaceStats: async (year, circuitId) => {
+    const response = await apiClient.get(`/stats/${year}/${circuitId}`);
+    return response.data;
   }
 };
 
