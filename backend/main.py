@@ -14,6 +14,7 @@ from services.strategy_engine import (
     calculate_tire_degradation,
     get_pit_window,
 )
+from services.race_analytics import process_and_upload_race_stats
 
 # Logging setup
 logging.basicConfig(
@@ -252,6 +253,30 @@ async def get_race_stats_endpoint(year: int, circuit_id: str):
     data["year"] = year
     data["circuit_id"] = circuit_id
     return data
+
+
+@app.post("/api/admin/generate-stats/{year}/{round_identifier}", tags=["Admin"])
+async def trigger_generate_race_stats(
+    year: int,
+    round_identifier: str,
+    circuit_id: Optional[str] = Query(default=None, description="Circuit identifier (e.g., monza, silverstone)")
+):
+    """
+    Triggers FastF1 telemetry analytics calculation (top speed, overtakes, track insights)
+    and pushes the aggregated stats to Firebase Firestore under collection 'race_analytics'.
+    """
+    target_circuit = circuit_id or f"round_{round_identifier}"
+    try:
+        result = process_and_upload_race_stats(year, round_identifier, target_circuit)
+        return {
+            "status": "success",
+            "message": f"Successfully processed and uploaded race stats for {year} round {round_identifier} ({target_circuit})",
+            "document_id": f"{year}_{target_circuit}",
+            "stats": result,
+        }
+    except Exception as e:
+        logger.error(f"Error processing race stats for {year} round {round_identifier}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
