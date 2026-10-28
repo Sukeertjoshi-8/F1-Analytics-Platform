@@ -57,15 +57,26 @@ export const ChampionshipStandings = () => {
         axios.get('https://api.jolpi.ca/ergast/f1/current/constructorStandings.json'),
       ]);
 
+      const driverStandingsLists = Array.isArray(driverRes.data?.MRData?.StandingsTable?.StandingsLists)
+        ? driverRes.data.MRData.StandingsTable.StandingsLists
+        : [];
+      const constructorStandingsLists = Array.isArray(constructorRes.data?.MRData?.StandingsTable?.StandingsLists)
+        ? constructorRes.data.MRData.StandingsTable.StandingsLists
+        : [];
+
       const drivers =
-        driverRes.data?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
+        driverStandingsLists.length > 0 && Array.isArray(driverStandingsLists[0]?.DriverStandings)
+          ? driverStandingsLists[0].DriverStandings
+          : [];
       const constructors =
-        constructorRes.data?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings || [];
+        constructorStandingsLists.length > 0 && Array.isArray(constructorStandingsLists[0]?.ConstructorStandings)
+          ? constructorStandingsLists[0].ConstructorStandings
+          : [];
 
       setDriverStandings(drivers);
       setConstructorStandings(constructors);
       setSeason(driverRes.data?.MRData?.StandingsTable?.season || new Date().getFullYear());
-      setRound(driverRes.data?.MRData?.StandingsTable?.StandingsLists?.[0]?.round || '');
+      setRound(driverStandingsLists.length > 0 ? driverStandingsLists[0]?.round || '' : '');
     } catch (err) {
       console.error('Failed to fetch Jolpica F1 standings:', err);
       setError(
