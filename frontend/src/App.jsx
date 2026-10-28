@@ -8,7 +8,7 @@ function App() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col selection:bg-[#E10600] selection:text-white">
         {/* Navigation Bar */}
         <Navbar />
